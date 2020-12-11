@@ -162,24 +162,6 @@ play.move = function(board, this_player, position)
   return(new_board)
 }
 
-## CONSTRUCT CNN
-
-model <- keras_model_sequential()
-
-model %>%
-  layer_conv_2d(filters=10, kernel_size=c(2,2), activation='relu', input_shape=c(8,8,1)) %>%
-  layer_max_pooling_2d() %>%
-  layer_flatten() %>%
-  layer_dense(units=256, activation = 'relu') %>%
-  layer_dense(units=64, activation='sigmoid')
-
-summary(model)
-
-model %>% compile(
-  optimizer = 'adam',
-  loss = 'rmse'
-)
-
 ## Q-LEARNING W/ CNN FUNCTIONS
 
 ## Note that it reads columns instead of rows, so the ninth position is the
@@ -321,7 +303,6 @@ play.game = function(){
         player <- "W"
         i.B <- i.B+1
       }
-      print(board)
   }
   board.digit <- model.board(board, player)
   results <- determine.winner(board.digit, player, inputs.W, inputs.B,
@@ -329,8 +310,6 @@ play.game = function(){
   return(results)
 }
 
-
-## NEED TO FIX DATA FORMATTING
 create.training.set = function(n.games){
   winning.inputs <- array(data = NA, dim = c((n.games*30),8,8,1))
   losing.inputs <- array(data = NA, dim = c((n.games*30),8,8,1))
@@ -353,11 +332,39 @@ create.training.set = function(n.games){
 
 ## RUNNING THE MODEL
 
-trainer <- create.training.set(1)
-board_init <- trainer[[1]]
-moves <- trainer[[3]]
+## CONSTRUCT CNN
 
-model %>% fit(board_init, moves, epochs=50)
+model <- keras_model_sequential()
+
+model %>%
+  layer_conv_2d(filters=10, kernel_size=c(2,2), activation='relu', input_shape=c(8,8,1)) %>%
+  layer_max_pooling_2d() %>%
+  layer_flatten() %>%
+  layer_dense(units=256, activation = 'relu') %>%
+  layer_dense(units=64, activation='sigmoid')
+
+summary(model)
+
+model %>% compile(
+  optimizer = 'adam',
+  loss = 'mean_squared_error'
+)
+
+model.run = function(model, n.rounds){
+  for(i in 1:n.rounds){
+    trainer <- create.training.set(100)
+    good_board_init <- trainer[[1]]
+    good_moves <- trainer[[3]]
+    bad_board_init <- trainer[[2]]
+    bad_moves <- trainer[[4]]
+    model %>% fit(good_board_init, good_moves, epochs=100)
+    # model %>% fit(bad_board_init, bad_moves, epochs=100)
+  }
+  return(model)
+}
+
+## For some reason, second round of model only givens NaN for board predictions
+model <- model.run(model, 5)
 
 
 
