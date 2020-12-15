@@ -509,12 +509,20 @@ corners.analysis = function(moveset){
               bottom.left.moves, bottom.right.moves))
 }
 
+## get.rounds.no.play returns the number of games played in the 
+## dataset without the winning player playing a piece in the
+## corner in question. 
+
 get.rounds.no.play <- function(x, y, data){
   data <- as.data.frame(data)
   tmp <- data %>%
     filter(data <= y, x < data)
   return(length(tmp$data))
 }
+
+## add.nas adds NA values for each game played in the 
+## dataset without the winning player playing a piece in the
+## corner in question. 
 
 add.nas = function(length.no.move, corner, x){
   x <- x-1
@@ -527,6 +535,11 @@ add.nas = function(length.no.move, corner, x){
     }
   return(corner)
 }
+
+## process.corner examines one corner and formats it to be compatible
+## with the game.starts dataframe. So, it formats it to have as many 
+## values as there were games, with NAs in place when the corner 
+## was not played that game.
 
 process.corner = function(corner, game.starts){
   corner <- corner[[1]]
@@ -564,6 +577,10 @@ process.corner = function(corner, game.starts){
   return(corner)
 }
 
+## make.data.set takes the set of moves and set of boards for one round 
+## of training and turns it into a coherent data set with reference
+## to each of the four corners
+
 make.data.set = function(moveset, boardset){
   game.starts <- game.starts(boardset)
   four.corners <- corners.analysis(moveset)
@@ -598,7 +615,10 @@ df10 <- make.data.set(moves.10, boards.10)
 ## variable and after wrestling with everything else for so long this ended up 
 ## being easier for me somehow...
 
-## STATS ##
+## OVERALL STATS CALCULATIONS ##
+
+## The four functions below calculate the average number of turns
+## it took to play in each corner for each game the corner was played
 
 calculate.turn.avg.TL = function(dataframe){
   dataframe <- dataframe %>% 
@@ -636,6 +656,9 @@ calculate.turn.avg.BR = function(dataframe){
   return(mean)
 }
 
+## The next four functions calculate the number of games in which the
+## corner in question was played out of the 50 games in the round.
+
 calculate.length.TL = function(dataframe){
   dataframe <- dataframe %>% 
     filter(!is.na(top.left))
@@ -663,6 +686,9 @@ calculate.length.BR = function(dataframe){
   length <- length(dataframe$game.starts)
   return(length)
 }
+
+## Here, a dataframe is created with the found average moves to play in the 
+## corner and the number of games the corner was secured
 
 overall.stats.df <- data.frame(matrix(ncol=8, nrow=10))
 colnames(overall.df) <-c('mean.TL', 'n.TL', 'mean.TR', 'n.TR', 
@@ -750,6 +776,9 @@ overall.stats.df$n.BR <- c(calculate.length.BR(df1),
 
 ## BOXPLOTS ##
 
+## These four functions reformat the corner data frames so they can be combined
+## and displayed as box plots. 
+
 calculate.boxplot.TL = function(dataframe){
   dataframe <- dataframe %>% 
     filter(!is.na(top.left)) %>% 
@@ -782,6 +811,8 @@ calculate.boxplot.BR = function(dataframe){
     mutate(corner = "Bottom Right") %>% 
     rename(turns.until.corner = bottom.right)
 }
+
+## Here, the boxplots are made. 
 
 boxplot1.df <- rbind(calculate.boxplot.TL(df1), calculate.boxplot.TR(df1),
                        calculate.boxplot.BL(df1), calculate.boxplot.BR(df1))
@@ -819,7 +850,10 @@ boxplot.df$round <- factor(boxplot.df$round,
 
 boxplot(turns.to.play ~ round, boxplot.df)
 
-## CORNERS ACQUIRED ##
+## CORNERS ACQUIRED CALCULATIONS ##
+
+## These functions are written to calculate the linear regression
+## The first calculates the proportion of games corners were captured.  
 
 calculate.proportion = function(df){
   TL.count <- table(!is.na(df$top.left))["TRUE"]
@@ -832,6 +866,8 @@ calculate.proportion = function(df){
   BR.prop <- BR.count/50
   return(c(TL.prop, TR.prop, BL.prop, BR.prop))
 }
+
+## Then, the proportion data is formatted for regression analysis.
 
 proportions = data.frame(matrix(ncol=0, nrow=4))
 rownames(proportions) <-c('TL.prop', 'TR.prop', 'BL.prop', 'BR.prop')
@@ -850,11 +886,16 @@ proportions2 <- data.frame(t(proportions))
 proportions2 <- proportions2 %>% 
   mutate(combo.proportion = (TL.prop+TR.prop+BL.prop+BR.prop) / 4)
 
-## MAKE GRAPH HERE ##
+## MAKE CORNERS REGRESSION AND GRAPH HERE ##
+
+proportions2$round <- 1:10
+lmodel <- lm(combo.proportion ~ round, data=proportions2)
+summary(lmodel)
 
 plot(proportions2$combo.proportion, 
      type = "b",
      main = "Proportion of Corners Acquired per Training Round",
      xlab="Training Round", 
      ylab="Proportion of Corners Acquired")
+
 
